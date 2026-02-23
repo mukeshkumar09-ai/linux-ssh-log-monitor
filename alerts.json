@@ -1,0 +1,7 @@
+{"event": "ssh_failed_login", "user": "hacker", "ip": "10.0.0.5", "attempts": 1, "timestamp": "2026-02-23 16:41:56", "severity": "medium"}
+{"event": "ssh_failed_login", "user": "hacker", "ip": "10.0.0.5", "attempts": 2, "timestamp": "2026-02-23 16:41:57", "severity": "medium"}
+{"event": "ssh_failed_login", "user": "hacker", "ip": "10.0.0.5", "attempts": 3, "timestamp": "2026-02-23 16:41:58", "severity": "medium"}
+{"event": "ssh_failed_login", "user": "hacker", "ip": "10.0.0.5", "attempts": 4, "timestamp": "2026-02-23 16:41:59", "severity": "medium"}
+{"event": "ssh_failed_login", "user": "hacker", "ip": "10.0.0.5", "attempts": 5, "timestamp": "2026-02-23 16:41:59", "severity": "high"}
+{"event": "ssh_failed_login", "user": "hacker", "ip": "10.0.0.5", "attempts": 6, "timestamp": "2026-02-23 16:42:00", "severity": "high"}
+{"event": "ssh_failed_login", "user": "hacker", "ip": "10.0.0.5", "attempts": 7, "timestamp": "2026-02-23 16:42:01", "severity": "high"}
