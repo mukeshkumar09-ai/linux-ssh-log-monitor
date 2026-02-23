@@ -1,115 +1,95 @@
-from flask import Flask, jsonify, render_template_string
-import json
+
+
+
+from flask import Flask, render_template, jsonify, request
+from flask_sqlalchemy import SQLAlchemy
 import os
-from collections import Counter
 
 app = Flask(__name__)
 
-ALERT_FILE = "alerts.json"
+# ==============================
+# DATABASE CONFIGURATION
+# ==============================
 
-HTML_TEMPLATE = """
-<!DOCTYPE html>
-<html>
-<head>
-    <title>SSH Security Analytics Dashboard</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
-        body { font-family: Arial; background: #111; color: white; }
-        h1 { color: #00ffcc; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { padding: 10px; border: 1px solid #333; }
-        th { background: #222; }
-        .high { color: red; font-weight: bold; }
-        .medium { color: orange; }
-        canvas { background: #222; margin-top: 20px; }
-    </style>
-</head>
-<body>
-    <h1>🚀 SSH Security Analytics Dashboard</h1>
+DATABASE_URL = os.environ.get("DATABASE_URL")
 
-    <canvas id="attackChart"></canvas>
+# Fix for Render postgres:// issue
+if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
-    <table>
-        <tr>
-            <th>IP</th>
-            <th>User</th>
-            <th>Attempts</th>
-            <th>Severity</th>
-            <th>Timestamp</th>
-        </tr>
-        {% for alert in alerts %}
-        <tr>
-            <td>{{ alert.ip }}</td>
-            <td>{{ alert.user }}</td>
-            <td>{{ alert.attempts }}</td>
-            <td class="{{ alert.severity }}">{{ alert.severity.upper() }}</td>
-            <td>{{ alert.timestamp }}</td>
-        </tr>
-        {% endfor %}
-    </table>
+app.config["SQLALCHEMY_DATABASE_URI"] = DATABASE_URL
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
-<script>
-async function fetchData() {
-    const response = await fetch('/api/alerts');
-    const data = await response.json();
+db = SQLAlchemy(app)
 
-    const ipCounts = {};
-    data.forEach(alert => {
-        ipCounts[alert.ip] = (ipCounts[alert.ip] || 0) + 1;
-    });
+# ==============================
+# DATABASE MODEL
+# ==============================
 
-    const labels = Object.keys(ipCounts);
-    const values = Object.values(ipCounts);
+class Alert(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    ip = db.Column(db.String(50))
+    user = db.Column(db.String(100))
+    attempts = db.Column(db.Integer)
+    severity = db.Column(db.String(20))
+    timestamp = db.Column(db.String(50))
 
-    attackChart.data.labels = labels;
-    attackChart.data.datasets[0].data = values;
-    attackChart.update();
-}
+# Create tables automatically
+with app.app_context():
+    db.create_all()
 
-const ctx = document.getElementById('attackChart').getContext('2d');
-const attackChart = new Chart(ctx, {
-    type: 'bar',
-    data: {
-        labels: [],
-        datasets: [{
-            label: 'Attack Attempts per IP',
-            data: [],
-            backgroundColor: 'rgba(255, 99, 132, 0.6)'
-        }]
-    },
-    options: {
-        scales: {
-            y: { beginAtZero: true }
-        }
-    }
-});
+# ==============================
+# STORE ALERT API (POST)
+# ==============================
 
-fetchData();
-setInterval(fetchData, 5000);
-</script>
+@app.route("/api/store", methods=["POST"])
+def store_alert():
+    data = request.json
 
-</body>
-</html>
-"""
+    alert = Alert(
+        ip=data["ip"],
+        user=data["user"],
+        attempts=data["attempts"],
+        severity=data["severity"],
+        timestamp=data["timestamp"]
+    )
 
-def load_alerts():
-    alerts = []
-    if os.path.exists(ALERT_FILE):
-        with open(ALERT_FILE, "r") as f:
-            for line in f:
-                alerts.append(json.loads(line))
-    return alerts[::-1]
+    db.session.add(alert)
+    db.session.commit()
 
-@app.route("/")
-def dashboard():
-    alerts = load_alerts()
-    return render_template_string(HTML_TEMPLATE, alerts=alerts)
+    return {"status": "stored"}, 200
+
+# ==============================
+# FETCH ALERTS API (GET)
+# ==============================
 
 @app.route("/api/alerts")
-def api_alerts():
-    return jsonify(load_alerts())
+def get_alerts():
+    alerts = Alert.query.order_by(Alert.id.desc()).limit(50).all()
+
+    result = []
+    for a in alerts:
+        result.append({
+            "ip": a.ip,
+            "user": a.user,
+            "attempts": a.attempts,
+            "severity": a.severity,
+            "timestamp": a.timestamp
+        })
+
+    return jsonify(result)
+
+# ==============================
+# HOME PAGE
+# ==============================
+
+@app.route("/")
+def index():
+    return render_template("index.html")
+
+# ==============================
+# RUN (LOCAL ONLY)
+# ==============================
 
 if __name__ == "__main__":
-    import os
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(debug=True)
