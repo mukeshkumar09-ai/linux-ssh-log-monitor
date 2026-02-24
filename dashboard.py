@@ -15,7 +15,6 @@ app.secret_key = "supersecretkey"
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
-# Fix Render postgres:// issue
 if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
