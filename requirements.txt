@@ -5,3 +5,4 @@ gunicorn
 requests
 flask-login
 werkzeug
+flask-mail
