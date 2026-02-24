@@ -148,6 +148,20 @@ def get_alerts():
 # RUN (LOCAL ONLY)
 # ==============================
 
+@app.route("/api/stats")
+@login_required
+def get_stats():
+    total_attacks = Alert.query.count()
+    unique_ips = db.session.query(Alert.ip).distinct().count()
+    high_severity = Alert.query.filter_by(severity="HIGH").count()
+
+    return jsonify({
+        "total_attacks": total_attacks,
+        "unique_ips": unique_ips,
+        "high_severity": high_severity
+    })
+
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
