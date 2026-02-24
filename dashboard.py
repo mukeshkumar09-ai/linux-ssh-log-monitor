@@ -1,6 +1,7 @@
 from flask import Flask, render_template, jsonify, request, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user
+from flask_mail import Mail, Message
 from werkzeug.security import generate_password_hash, check_password_hash
 import os
 
@@ -20,6 +21,22 @@ if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
 
 app.config["SQLALCHEMY_DATABASE_URI"] = DATABASE_URL
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+
+# ==============================
+# EMAIL CONFIG
+# ==============================
+
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USERNAME'] = os.environ.get("EMAIL_USER")
+app.config['MAIL_PASSWORD'] = os.environ.get("EMAIL_PASS")
+
+mail = Mail(app)
+
+# ==============================
+# INIT DATABASE + LOGIN
+# ==============================
 
 db = SQLAlchemy(app)
 
@@ -66,6 +83,33 @@ def load_user(user_id):
     return User.query.get(int(user_id))
 
 # ==============================
+# EMAIL FUNCTION
+# ==============================
+
+def send_email(ip, user, attempts):
+    try:
+        msg = Message(
+            subject="🚨 HIGH SSH ATTACK DETECTED",
+            sender=app.config['MAIL_USERNAME'],
+            recipients=[app.config['MAIL_USERNAME']]
+        )
+
+        msg.body = f"""
+High severity SSH attack detected!
+
+IP: {ip}
+User: {user}
+Attempts: {attempts}
+
+Check dashboard immediately.
+"""
+
+        mail.send(msg)
+
+    except Exception as e:
+        print("Email failed:", e)
+
+# ==============================
 # LOGIN ROUTE
 # ==============================
 
@@ -94,7 +138,7 @@ def logout():
     return redirect(url_for("login"))
 
 # ==============================
-# PROTECTED DASHBOARD
+# DASHBOARD
 # ==============================
 
 @app.route("/")
@@ -121,10 +165,14 @@ def store_alert():
     db.session.add(alert)
     db.session.commit()
 
+    # 🔥 Send email if HIGH severity
+    if data["severity"] == "HIGH":
+        send_email(data["ip"], data["user"], data["attempts"])
+
     return {"status": "stored"}, 200
 
 # ==============================
-# FETCH ALERTS API
+# FETCH ALERTS
 # ==============================
 
 @app.route("/api/alerts")
@@ -145,7 +193,7 @@ def get_alerts():
     return jsonify(result)
 
 # ==============================
-# RUN (LOCAL ONLY)
+# STATS API
 # ==============================
 
 @app.route("/api/stats")
@@ -161,6 +209,9 @@ def get_stats():
         "high_severity": high_severity
     })
 
+# ==============================
+# RUN
+# ==============================
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
